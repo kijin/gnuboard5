@@ -53,14 +53,14 @@ if ($is_member)
     $mb_id = $member['mb_id'];
     // 4.00.13 - 실명 사용일때 댓글에 닉네임으로 입력되던 오류를 수정
     $wr_name = $board['bo_use_name'] ? $member['mb_name'] : $member['mb_nick'];
-    $wr_password = $member['mb_password'];
+    $wr_password_hash = $member['mb_password'];
     $wr_email = $member['mb_email'];
     $wr_homepage = $member['mb_homepage'];
 }
 else
 {
     $mb_id = '';
-    $wr_password = sql_password($wr_password);
+    $wr_password_hash = hash_password($wr_password);
 }
 
 if ($w == 'c') // 댓글 입력
@@ -148,7 +148,7 @@ if ($w == 'c') // 댓글 입력
                      wr_subject = '',
                      wr_content = '$wr_content',
                      mb_id = '$mb_id',
-                     wr_password = '$wr_password',
+                     wr_password = '$wr_password_hash',
                      wr_name = '$wr_name',
                      wr_email = '$wr_email',
                      wr_homepage = '$wr_homepage',
@@ -280,7 +280,7 @@ else if ($w == 'cu') // 댓글 수정
         if ($member['mb_id'] != $comment['mb_id'])
             alert('자신의 글이 아니므로 수정할 수 없습니다.');
     } else {
-        if($comment['wr_password'] != $wr_password)
+        if(!check_password($wr_password, $comment['wr_password']))
             alert('댓글을 수정할 권한이 없습니다.');
     }
 

@@ -297,7 +297,7 @@ if ($w == '' || $w == 'r') {
         $wr_name = trim($_POST['wr_name']);
         if (!$wr_name)
             alert('이름은 필히 입력하셔야 합니다.');
-        $wr_password = sql_password($wr_password);
+        $wr_password = hash_password($wr_password);
         $wr_email = get_email_address(trim($_POST['wr_email']));
     }
 
@@ -422,7 +422,7 @@ if ($w == '' || $w == 'r') {
         $wr_email = get_email_address(trim($_POST['wr_email']));
     }
 
-    $sql_password = $wr_password ? " , wr_password = '".sql_password($wr_password)."' " : "";
+    $sql_password = $wr_password ? " , wr_password = '".hash_password($wr_password)."' " : "";
 
     $sql_ip = '';
     if (!$is_admin)

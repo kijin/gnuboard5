@@ -67,13 +67,18 @@ if ($w == "") {
 
     if ($_POST['mb_password']) {
         // 수정된 정보를 업데이트후 되돌아 온것이라면 비밀번호가 암호화 된채로 넘어온것임
-        if ($_POST['is_update'])
-            $tmp_password = $_POST['mb_password'];
-        else
-            $tmp_password = sql_password($_POST['mb_password']);
-
-        if ($member['mb_password'] != $tmp_password)
-            alert('비밀번호가 틀립니다.');
+        if ($_POST['is_update']) {
+            if ($_POST['mb_password'] !== $member['mb_password']) {
+                alert('비밀번호가 틀립니다.');
+            }
+        }
+        else {
+            if (!check_password($_POST['mb_password'], $member['mb_password'])) {
+                alert('비밀번호가 틀립니다.');
+            }
+        }
+        // 구 버전과의 호환성 유지를 위해 $tmp_password 변수를 정의하고 해시값을 넣음
+        $tmp_password = $member['mb_password'];
     }
 
     $g5['title'] = '회원 정보 수정';

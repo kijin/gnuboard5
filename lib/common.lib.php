@@ -1483,6 +1483,7 @@ function sql_free_result($result)
 }
 
 
+// 비밀번호 암호화(해싱) - 기존 함수
 function sql_password($value)
 {
     // mysql 4.0x 이하 버전에서는 password() 함수의 결과가 16bytes
@@ -1490,6 +1491,31 @@ function sql_password($value)
     $row = sql_fetch(" select password('$value') as pass ");
 
     return $row['pass'];
+}
+
+
+// 비밀번호 암호화(해싱) - 새 함수
+function hash_password($password)
+{
+    include_once 'password.lib.php';
+    $hash = create_password_hash($password, defined('G5_HASHING_ALGORITHM') ? G5_HASHING_ALGORITHM : 'password');
+    return $hash !== false ? $hash : sql_password($password);
+}
+
+
+// 위의 함수로 암호화(해싱)된 비밀번호 체크
+function check_password($password, $hash)
+{
+    include_once 'password.lib.php';
+    return check_password_hash($password, $hash);
+}
+
+
+// 난수 생성 함수
+function get_entropy($bytes, $format = 'hex')
+{
+    include_once 'password.lib.php';
+    return create_secure_salt($bytes, $format);
 }
 
 

@@ -206,7 +206,7 @@ if ($w == '') {
 
     $sql = " insert into {$g5['member_table']}
                 set mb_id = '{$mb_id}',
-                     mb_password = '".sql_password($mb_password)."',
+                     mb_password = '".hash_password($mb_password)."',
                      mb_name = '{$mb_name}',
                      mb_nick = '{$mb_nick}',
                      mb_nick_date = '".G5_TIME_YMD."',
@@ -302,7 +302,7 @@ if ($w == '') {
 
     $sql_password = "";
     if ($mb_password)
-        $sql_password = " , mb_password = '".sql_password($mb_password)."' ";
+        $sql_password = " , mb_password = '".hash_password($mb_password)."' ";
 
     $sql_icon = "";
     if ($mb_icon)

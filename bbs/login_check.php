@@ -14,7 +14,7 @@ $mb = get_member($mb_id);
 // 가입된 회원이 아니다. 비밀번호가 틀리다. 라는 메세지를 따로 보여주지 않는 이유는
 // 회원아이디를 입력해 보고 맞으면 또 비밀번호를 입력해보는 경우를 방지하기 위해서입니다.
 // 불법사용자의 경우 회원아이디가 틀린지, 비밀번호가 틀린지를 알기까지는 많은 시간이 소요되기 때문입니다.
-if (!$mb['mb_id'] || (sql_password($mb_password) != $mb['mb_password'])) {
+if (!$mb['mb_id'] || !check_password($mb_password, $mb['mb_password'])) {
     alert('가입된 회원아이디가 아니거나 비밀번호가 틀립니다.\\n비밀번호는 대소문자를 구분합니다.');
 }
 
@@ -32,6 +32,11 @@ if ($mb['mb_leave_date'] && $mb['mb_leave_date'] <= date("Ymd", G5_SERVER_TIME))
 
 if ($config['cf_use_email_certify'] && !preg_match("/[1-9]/", $mb['mb_email_certify'])) {
     confirm("{$mb['mb_email']} 메일로 메일인증을 받으셔야 로그인 가능합니다. 다른 메일주소로 변경하여 인증하시려면 취소를 클릭하시기 바랍니다.", G5_URL, G5_BBS_URL.'/register_email.php?mb_id='.$mb_id);
+}
+
+// 비밀번호 암호화(해싱) 알고리듬 변경이 필요한 경우 여기서 수행
+if (defined('G5_HASHING_ALGORITHM') && defined('G5_UPGRADE_ALGORITHM') && algorithm_needs_upgrade($mb['mb_password'])) {
+    $mb['mb_password'] = upgrade_password_algorithm($mb['mb_id'], $mb_password, G5_HASHING_ALGORITHM);
 }
 
 @include_once($member_skin_path.'/login_check.skin.php');
