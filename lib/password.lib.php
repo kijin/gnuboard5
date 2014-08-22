@@ -22,18 +22,23 @@ function create_password_hash($password, $algorithm)
             {
                 return hash($algorithm, $password);
             }
+            elseif (function_exists('mhash') && defined('MHASH_' . strtoupper($algorithm)))
+            {
+                return bin2hex(mhash(constant('MHASH_' . strtoupper($algorithm)), $password));
+            }
             else
             {
                 return false;
             }
         
         case 'pbkdf2':
-            if (function_exists('hash_algos') && in_array('sha256', hash_algos()))
+            $salt = create_secure_salt(24, 'alnum');
+            $length = 32;
+            $iterations = 8192;
+            $pbkdf2 = pbkdf2('sha256', $password, $salt, $length, $iterations);
+            if ($pbkdf2 !== false)
             {
-                $salt = create_secure_salt(24, 'alnum');
-                $length = 32;
-                $iterations = 8192;
-                return 'sha256:'.$iterations.':'.$salt.':'.base64_encode(pbkdf2('sha256', $password, $salt, $length, $iterations));
+                return 'sha256:'.$iterations.':'.$salt.':'.base64_encode($pbkdf2);
             }
             else
             {
@@ -80,26 +85,36 @@ function check_password_hash($password, $hash)
                 return sha1($password) === $hash;
             
             case 64:
-                if (!function_exists('hash_algos') || !in_array('sha256', hash_algos())) return false;
-                return hash('sha256', $password) === $hash;
-            
+                $algorithm = isset($algorithm) ? $algorithm : 'sha256';
             case 96:
-                if (!function_exists('hash_algos') || !in_array('sha384', hash_algos())) return false;
-                return hash('sha384', $password) === $hash;
-            
+                $algorithm = isset($algorithm) ? $algorithm : 'sha384';
             case 128:
-                if (!function_exists('hash_algos') || !in_array('sha512', hash_algos())) return false;
-                return hash('sha512', $password) === $hash;
-            
+                $algorithm = isset($algorithm) ? $algorithm : 'sha512';
+                
             default:
-                return false;
+                if (!isset($algorithm))
+                {
+                    return false;
+                }
+                elseif (function_exists('hash_algos') && in_array($algorithm, hash_algos()))
+                {
+                    return hash($algorithm, $password) === $hash;
+                }
+                elseif (function_exists('mhash') && defined('MHASH_' . strtoupper($algorithm)))
+                {
+                    return bin2hex(mhash(constant('MHASH_' . strtoupper($algorithm)), $password)) === $hash;
+                }
+                else
+                {
+                    return false;
+                }
         }
     }
     elseif (preg_match('/^sha256:[0-9]+:[^:]+:[^:]+$/', $hash))  // PBKDF2
     {
         list($algorithm, $iterations, $salt, $pbkdf2) = explode(':', $hash);
-        if (!function_exists('hash_algos') || !in_array($algorithm, hash_algos())) return false;
-        return pbkdf2($algorithm, $password, $salt, strlen($pbkdf2), $iterations) === @base64_decode($pbkdf2);
+        $pbkdf2 = @base64_decode($pbkdf2);
+        return pbkdf2($algorithm, $password, $salt, strlen($pbkdf2), $iterations) === $pbkdf2;
     }
     elseif (preg_match('/^\$2[axy]\$[0-9]{2}\$/', $hash))  // bcrypt
     {
@@ -205,31 +220,38 @@ function create_secure_salt($bytes, $format = 'hex')
         }
     }
     
+    // 엔트로피 믹싱
+    $output = '';
+    for ($i = 0; $i < $bytes; $i += 20)
+    {
+        $output .= sha1($entropy . $i . rand(), true);
+    }
+    
     // 원하는 포맷으로 인코딩하여 반환
     if ($format === 'hex')
     {
-        return substr(bin2hex($entropy), 0, $bytes);
+        return substr(bin2hex($output), 0, $bytes);
     }
     elseif ($format === 'alnum')
     {
-        $salt = substr(base64_encode($entropy), 0, $bytes);
+        $salt = substr(base64_encode($output), 0, $bytes);
         $replacements = chr(rand(65, 90)) . chr(rand(97, 122)) . rand(0, 9);
         return strtr($salt, '+/=', $replacements);
     }
     else
     {
-        return substr($entropy, 0, $bytes);
+        return substr($output, 0, $bytes);
     }
 }
 
 // PBKDF2 함수
 function pbkdf2($algorithm, $password, $salt, $length, $iterations)
 {
-    if (function_exists('hash_pbkdf2'))
+    if (function_exists('hash_pbkdf2') && in_array($algorithm, hash_algos()))
     {
         return hash_pbkdf2($algorithm, $password, $salt, $iterations, $length, true);
     }
-    else
+    elseif (function_exists('hash_algos') && in_array($algorithm, hash_algos()))
     {
         $output = '';
         $block_count = ceil($length / strlen(hash($algorithm, '', true))); // key length divided by the length of one hash
@@ -244,5 +266,26 @@ function pbkdf2($algorithm, $password, $salt, $length, $iterations)
             $output .= $xorsum;
         }
         return substr($output, 0, $length);
+    }
+    elseif (function_exists('mhash') && defined('MHASH_' . strtoupper($algorithm)))
+    {
+        $mhash_algorithm = constant('MHASH_' . strtoupper($algorithm));
+        $output = '';
+        $block_count = ceil($length / strlen(mhash($mhash_algorithm, ''))); // key length divided by the length of one hash
+        for ($i = 1; $i <= $block_count; $i++)
+        {
+            $last = $salt . pack('N', $i); // $i encoded as 4 bytes, big endian
+            $last = $xorsum = mhash($mhash_algorithm, $last, $password); // first iteration
+            for ($j = 1; $j < $iterations; $j++) // The other $count - 1 iterations
+            {
+                $xorsum ^= ($last = mhash($mhash_algorithm, $last, $password));
+            }
+            $output .= $xorsum;
+        }
+        return substr($output, 0, $length);
+    }
+    else
+    {
+        return false;
     }
 }
