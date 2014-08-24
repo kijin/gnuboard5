@@ -197,15 +197,20 @@ function create_secure_salt($bytes, $format = 'hex')
     }
     
     // 현재 시스템에서 사용 가능한 최적의 엔트로피를 선택
-    if (function_exists('openssl_random_pseudo_bytes'))
+    $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    if (function_exists('openssl_random_pseudo_bytes') && (!$is_windows || version_compare(PHP_VERSION, '5.4', '>=')))
     {
         $entropy = openssl_random_pseudo_bytes($entropy_required_bytes);
     }
-    elseif (function_exists('mcrypt_create_iv') && defined('MCRYPT_DEV_URANDOM'))
+    elseif (function_exists('mcrypt_create_iv') && (!$is_windows || version_compare(PHP_VERSION, '5.3.7', '>=')))
     {
         $entropy = mcrypt_create_iv($entropy_required_bytes, MCRYPT_DEV_URANDOM);
     }
-    elseif (defined('PHP_OS') && !strncmp(PHP_OS, 'Linux', 5) && @is_readable('/dev/urandom'))
+    elseif ($is_windows && function_exists('mcrypt_create_iv') && defined('MCRYPT_RAND'))
+    {
+        $entropy = mcrypt_create_iv($entropy_required_bytes, MCRYPT_RAND);
+    }
+    elseif (!$is_windows && file_exists('/dev/urandom') && is_readable('/dev/urandom'))
     {
         $fp = fopen('/dev/urandom', 'rb');
         $entropy = fread($fp, $entropy_required_bytes);
